@@ -18,7 +18,7 @@ class Header():
     SOS:str = "S"
     ACK:str = "A"
     CORR:str = "C"
-    CHK: str = "K"
+    CLR: str = "K"
     EXIT:str = "E"
 
 ##### SERVER ####
@@ -97,6 +97,7 @@ def receive():
                         
                         update_blob_text(str(local_blob.blob))
                         pending_acks.pop(t_hash)
+                        send(Header.CLR, "")
                     else:
                         send_sos()
                 case Header.SOS: # S:'sos_text_mapping'
@@ -117,6 +118,8 @@ def receive():
                 case Header.EXIT:
                     t_plaintext = local_blob.decode(t_mappings)
                     update_past_messages(t_plaintext)
+                case Header.CLR:
+                    local_blob.last_known_good_blob = local_blob.blob_history[0]
                 case default:
                     print("UNKNOWN HEADER: ", t_header, " IGNORING PACKET")
 
@@ -174,7 +177,8 @@ bottom_lbl = tk.Label(root, text = tagline, font = (label_font, label_size), bg 
 past_m_frame = tk.Frame(root, bg = canvas_bg)
 
 past_messages = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
-current_blob = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
+
+current_blob = tk.Label(past_m_frame, justify = "left", wraplength = 400, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
 
 def message_submit() -> ():
     if new_message.get() != "":
@@ -187,9 +191,7 @@ def update_past_messages(new_message: str) -> ():
     past_messages.configure(state = "disabled")
 
 def update_blob_text(new_blob: str) -> ():
-    current_blob.configure(state = "normal")
-    current_blob.insert(tk.INSERT, new_blob)
-    past_messages.configure(state = "disabled")
+    current_blob.config(text = new_blob)
 
 new_m_frame = tk.Frame(root, bg = canvas_bg)
 

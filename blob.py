@@ -111,4 +111,4 @@ class Blob:
         if self.last_known_good_blob == None: False
         self.blob = self.blob_history.pop(0)
         return True
-
+    

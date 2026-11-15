@@ -93,11 +93,8 @@ def receive():
                     t_hash = t_split[1]
                     if t_hash in pending_acks.keys():
                         local_blob.shuffle_blob(pending_acks[t_hash])
-<<<<<<< Updated upstream
                         
-=======
                         update_blob_text(str(local_blob.blob))
->>>>>>> Stashed changes
                         pending_acks.pop(t_hash)
                     else:
                         send_sos()

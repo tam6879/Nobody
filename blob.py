@@ -21,7 +21,7 @@ CHARS = string.ascii_letters + string.digits
 HASH_LENGTH: int = 64
 
 class Blob:
-    def __init__(self, permutations: int = 4):
+    def __init__(self, permutations: int = 8):
         self.permutations = permutations
         res: list[int] = []
         self.size = permutations * 256
@@ -53,6 +53,7 @@ class Blob:
         random.seed()
         self.generate_hash()
         self.generate_lookup_table()
+        print("New blob hash: ", self.hash)
     
     def get_byte(self, b: int) -> int:
         # t_randy: int = random.randint(0, 3) # fastrand.pcg32randint(0, self.permutations - 1)
@@ -105,7 +106,8 @@ class Blob:
             self.send_sos()
         return res
 
-    def send_ack(self, hash: str) -> None:
-        pass
-
+    def restore_blob(self) -> bool:
+        if len(self.blob_history) <= 0: return False
+        self.blob = self.blob_history.pop(0)
+        return True
 

@@ -58,6 +58,15 @@ def broadcast(msg, sender, send_back: bool = False):  # prefix is for name ident
 ### CLIENT ###
 
 pending_acks = {}
+failed_message: str = ""
+prev_message: str = ""
+
+def send_sos() -> None:
+    t_sos_plaintext: str = local_blob.generate_sos()
+    t_sos_ciphertext: str = local_blob.encode(t_sos_plaintext)
+    t_sos_hash = hashlib.sha256(t_sos_plaintext.encode("utf-8")).hexdigest()
+    send(Header.SOS, t_sos_ciphertext)
+    pending_acks[t_sos_hash] = t_sos_plaintext
 
 def receive():
     """Handles receiving of messages."""
@@ -83,12 +92,25 @@ def receive():
                     t_hash = t_split[1]
                     if t_hash in pending_acks.keys():
                         local_blob.shuffle_blob(pending_acks[t_hash])
+                        
                         pending_acks.pop(t_hash)
                     else:
-                        print("WARNING! UNKNOWN HASH RECIEVED SENDING CORRECTION!")
-                case Header.SOS:
+                        send_sos()
+                case Header.SOS: # S:'sos_text_mapping'
+                    failed_message = prev_message
                     t_mappings = t_split[1]
-                    t_hash = t_split[2]
+                    if (local_blob.restore_blob):
+                        print("REVERTED BLOB, TRYING WITH PREVIOUS")
+                        t_plaintext = local_blob.decode()
+                        send(Header.CORR, t_plaintext)
+                case Header.CORR: # C:'sos_text_hash'abs
+                    t_hash = t_split[1]
+                    if t_hash in pending_acks.keys: # this means they are at a match now
+                        t_plaintext = failed_message
+                        pending_acks.clear()
+                        send(Header.MSG, failed_message)
+                    else:
+                        send_sos()
                 case Header.EXIT:
                     t_plaintext = local_blob.decode(t_mappings)
                     update_past_messages(t_plaintext)
@@ -107,6 +129,7 @@ def send_message() -> None: # plaintext format for sending: 'message|date_and_ti
     t_hash = hashlib.sha256(t_plaintext.encode("utf-8")).hexdigest()
     t_packet = local_blob.encode(t_plaintext)
     new_message.set("")  # Clears input field.
+    prev_message = t_plaintext
     send(Header.MSG, t_packet)
     pending_acks[t_hash] = t_plaintext
     

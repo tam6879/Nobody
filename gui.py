@@ -18,6 +18,7 @@ class Header():
     SOS:str = "S"
     ACK:str = "A"
     CORR:str = "C"
+    CHK: str = "K"
     EXIT:str = "E"
 
 ##### SERVER ####
@@ -93,10 +94,7 @@ def receive():
                     t_hash = t_split[1]
                     if t_hash in pending_acks.keys():
                         local_blob.shuffle_blob(pending_acks[t_hash])
-<<<<<<< HEAD
                         
-=======
->>>>>>> a3fa6c053083880890f3a57fb99a8720fff3a251
                         update_blob_text(str(local_blob.blob))
                         pending_acks.pop(t_hash)
                     else:
@@ -176,8 +174,7 @@ bottom_lbl = tk.Label(root, text = tagline, font = (label_font, label_size), bg 
 past_m_frame = tk.Frame(root, bg = canvas_bg)
 
 past_messages = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
-#current_blob = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
-current_blob = tk.Label(past_m_frame, justify = "left", wraplength = 400, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
+current_blob = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
 
 def message_submit() -> ():
     if new_message.get() != "":
@@ -190,10 +187,9 @@ def update_past_messages(new_message: str) -> ():
     past_messages.configure(state = "disabled")
 
 def update_blob_text(new_blob: str) -> ():
-    current_blob.config(text = new_blob)
-    #current_blob.configure(state = "normal")
-    #current_blob.insert(tk.INSERT, new_blob)
-    #current_blob.configure(state = "disabled")
+    current_blob.configure(state = "normal")
+    current_blob.insert(tk.INSERT, new_blob)
+    past_messages.configure(state = "disabled")
 
 new_m_frame = tk.Frame(root, bg = canvas_bg)
 

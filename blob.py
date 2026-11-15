@@ -33,6 +33,7 @@ class Blob:
         self.history_length: int = 4
         self.blob_history: list = []
         self.sos_length: int = 64
+        self.last_known_good_blob: bytearray = None
     
     def generate_lookup_table(self) -> None:
         res: dict = {}
@@ -107,7 +108,7 @@ class Blob:
         return res
 
     def restore_blob(self) -> bool:
-        if len(self.blob_history) <= 0: return False
+        if self.last_known_good_blob == None: False
         self.blob = self.blob_history.pop(0)
         return True
 

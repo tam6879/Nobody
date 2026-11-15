@@ -32,6 +32,7 @@ class Blob:
         self.generate_lookup_table()
         self.history_length: int = 4
         self.blob_history: list = []
+        self.hash_history: list = []
         self.sos_length: int = 64
         self.last_known_good_blob: bytearray = None
     
@@ -49,7 +50,7 @@ class Blob:
 
     def shuffle_blob(self, seed: str) -> None:
         self.store_current_blob()
-        random.seed(self.hash + seed)
+        random.seed(str(self.blob) + seed)
         random.shuffle(self.blob)
         random.seed()
         self.generate_hash()
@@ -74,6 +75,14 @@ class Blob:
         for m in mappings: res.append(self.blob[m])
         return res
     
+    def purge_bad_history(self, t_last_good: str) -> None:
+        while(len(self.hash_history) > 0):
+            if self.hash_history[0] != t_last_good:
+                self.hash_history.pop(0)
+                self.blob_history.pop(0)
+            else:
+                break
+
     def decode_as_text(self, s_mappings: str) -> str:
         t_decode: bytearray = self.decode(s_mappings)
         res = []
@@ -81,8 +90,11 @@ class Blob:
         return ''.join(res)
     
     def store_current_blob(self) -> None:
-        if len(self.blob_history) >= self.history_length: self.blob_history.pop(-1)
-        self.blob_history.insert(0, [self.blob, self.hash])
+        if len(self.blob_history) >= self.history_length: 
+            self.blob_history.pop(-1)
+            self.hash_history.pop(-1)
+        self.blob_history.insert(0, self.blob)
+        self.hash_history.insert(0, self.hash)
     
     def generate_sos(self) -> str:
         return random.choices(CHARS, self.sos_length)
@@ -107,8 +119,7 @@ class Blob:
             self.send_sos()
         return res
 
-    def restore_blob(self) -> bool:
-        if self.last_known_good_blob == None: False
-        self.blob = self.blob_history.pop(0)
-        return True
+    def restore_blob(self, indx: int) -> None:
+        self.blob = self.blob_history[indx % len(self.blob_history)]
+        self.hash = self.hash_history[indx % len(self.hash_history)]
     

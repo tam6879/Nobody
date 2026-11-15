@@ -5,6 +5,7 @@ import hashlib
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 from blob import Blob, Status
+from stats import ChatStats
 from datetime import datetime
 from enum import Enum
 
@@ -17,8 +18,7 @@ class Header():
     MSG:str = "M"
     SOS:str = "S"
     ACK:str = "A"
-    CORR:str = "C"
-    CLR: str = "K"
+    CLR:str = "C"
     EXIT:str = "E"
 
 ##### SERVER ####
@@ -61,12 +61,13 @@ def broadcast(msg, sender, send_back: bool = False):  # prefix is for name ident
 pending_acks = {}
 failed_message: str = ""
 prev_message: str = ""
+sos_depth: int = 0
 
 def send_sos() -> None:
-    t_sos_plaintext: str = local_blob.generate_sos()
-    t_sos_ciphertext: str = local_blob.encode(t_sos_plaintext)
-    t_sos_hash = hashlib.sha256(t_sos_plaintext.encode("utf-8")).hexdigest()
-    send(Header.SOS, t_sos_ciphertext)
+    t_hashs = ""
+    for t_blob in local_blob.blob_history:
+        t_hashs = t_hashs + "|" + t_blob[1]
+    send(Header.SOS, t_hashs)
     pending_acks[t_sos_hash] = t_sos_plaintext
 
 def receive():
@@ -77,7 +78,7 @@ def receive():
             print("Recieved Packet: ", msg)
             t_split = msg.split(":")
             t_header = t_split[0]
-            
+            if t_header != Header.MSG: local_stats.last_recieved = str(msg)
             match(t_header):
                 case Header.MSG: # M:'mappings'
                     t_mappings = t_split[1]
@@ -87,39 +88,41 @@ def receive():
                     if not local_hash in pending_acks.keys(): 
                         send(Header.ACK, local_hash)
                         local_blob.shuffle_blob(t_plaintext)
-                        update_blob_text(str(local_blob.blob))
+                        #update_blob_text(str(local_blob.blob))
+                        local_stats.last_recieved = msg
                     else:
                         print("This is my own packet, ignoring")
                 case Header.ACK: # A:'acknowledged_hash'
                     t_hash = t_split[1]
                     if t_hash in pending_acks.keys():
                         local_blob.shuffle_blob(pending_acks[t_hash])
-                        
-                        update_blob_text(str(local_blob.blob))
+                        #update_blob_text(str(local_blob.blob))
                         pending_acks.pop(t_hash)
-                        send(Header.CLR, "")
                     else:
+                        failed_message = prev_message
                         send_sos()
                 case Header.SOS: # S:'sos_text_mapping'
-                    failed_message = prev_message
-                    t_mappings = t_split[1]
-                    if (local_blob.restore_blob):
+                    found = False
+                    for t_hash in t_split[1:]:
+                        if t_hash in local_blob.hash_history:
+                            local_blob.restore_blob(local_blob.hash_history.index(t_hash))
+                            local_blob.purge_bad_history(t_hash)
+                            found = True
+                            break
+                    if (found):
                         print("REVERTED BLOB, TRYING WITH PREVIOUS")
-                        t_plaintext = local_blob.decode()
-                        send(Header.CORR, t_plaintext)
-                case Header.CORR: # C:'sos_text_hash'abs
-                    t_hash = t_split[1]
-                    if t_hash in pending_acks.keys: # this means they are at a match now
-                        t_plaintext = failed_message
-                        pending_acks.clear()
-                        send(Header.MSG, failed_message)
+                        send(Header.CLR, t_hash)
                     else:
-                        send_sos()
+                        print("CATASTROPHIC FAILURE HOW DID THIS EVEN HAPPEN?!")
+                case Header.CLR: # K:'blob_hash'abs
+                    t_hash = t_split[1]
+                    local_blob.restore_blob(local_blob.hash_history.index(t_hash))
+                    local_blob.purge_bad_history(t_hash)
+                    new_message.set(failed_message)
+                    send_message()
                 case Header.EXIT:
                     t_plaintext = local_blob.decode(t_mappings)
                     update_past_messages(t_plaintext)
-                case Header.CLR:
-                    local_blob.last_known_good_blob = local_blob.blob_history[0]
                 case default:
                     print("UNKNOWN HEADER: ", t_header, " IGNORING PACKET")
 
@@ -141,8 +144,10 @@ def send_message() -> None: # plaintext format for sending: 'message|date_and_ti
     
 
 def send(header: Header, packet: str):  # event is passed by binders.
-    print("Sending Packet: ", header + ":" + packet)
-    client_socket.send(bytes(header + ":" + packet, "utf8"))
+    t_packet: str = header + ":" + packet
+    print("Sending Packet: ", t_packet)
+    local_stats.last_sent = str(t_packet)
+    client_socket.send(bytes(t_packet, "utf8"))
     if header == Header.EXIT:
         client_socket.close()
         top.quit()
@@ -190,8 +195,10 @@ def update_past_messages(new_message: str) -> ():
     past_messages.insert(tk.END, new_message + '\n')
     past_messages.configure(state = "disabled")
 
-def update_blob_text(new_blob: str) -> ():
-    current_blob.config(text = new_blob)
+def update_blob_text() -> ():
+    res = f"Inside look:\nBlob State: {str(local_blob.blob)[10:48]}...\nBlob Hash: {str(local_blob.hash)}\nLast Sent Packet:{local_stats.last_sent[:64]}...\nLast Recieved Packet{local_stats.last_recieved[:64]}..."
+    current_blob.config(text = res)
+    root.after(256, update_blob_text)
 
 new_m_frame = tk.Frame(root, bg = canvas_bg)
 
@@ -263,8 +270,9 @@ else: # Client set up
     receive_thread.start()
 
 local_blob = Blob()
+local_stats = ChatStats()
 local_blob.shuffle_blob(init_key)
-update_blob_text(str(local_blob.blob))
-print("Blob: ", str(local_blob.blob))
-print("Blob hash: ", local_blob.hash)
+update_blob_text()
+# print("Blob: ", str(local_blob.blob))
+# print("Blob hash: ", local_blob.hash)
 root.mainloop()

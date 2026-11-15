@@ -48,7 +48,7 @@ class Blob:
 
     def shuffle_blob(self, seed: str) -> None:
         self.store_current_blob()
-        random.seed(seed)
+        random.seed(self.hash + seed)
         random.shuffle(self.blob)
         random.seed()
         self.generate_hash()
@@ -59,18 +59,21 @@ class Blob:
         # print("Random: ", t_randy)
         return self.lookup_table[b][random.randint(0, 3)]
     
-    def encode(self, plaintext: str) -> list:
-        res = []
-        for c in plaintext: res.append(self.lookup_table[ord(c)][random.randint(0, self.permutations - 1)])
-        return res
+    def encode(self, plaintext: str) -> str:
+        res = ""
+        for c in plaintext: res = res + str(self.lookup_table[ord(c)][random.randint(0, self.permutations - 1)]) + '|'
+        return res[:-1]
 
-    def decode(self, mappings: list) -> bytearray:
+    def decode(self, s_mappings: str) -> bytearray:
+        t_split = s_mappings.split('|')
+        mappings = []
+        for c in t_split: mappings.append(int(c))
         res: bytearray = []
         for m in mappings: res.append(self.blob[m])
         return res
     
-    def decode_as_text(self, mappings: list) -> str:
-        t_decode: bytearray = self.decode(mappings)
+    def decode_as_text(self, s_mappings: str) -> str:
+        t_decode: bytearray = self.decode(s_mappings)
         res = []
         for t_byte in t_decode: res.append(chr(t_byte))
         return ''.join(res)
@@ -79,6 +82,9 @@ class Blob:
         if len(self.blob_history) >= self.history_length: self.blob_history.pop(-1)
         self.blob_history.insert(0, [self.blob, self.hash])
     
+    def generate_sos(self) -> str:
+        return random.choices(CHARS, self.sos_length)
+
     def send_sos(self) -> None:
         t_message: str = random.choices(CHARS, self.sos_length)
         print("SOS message: ", t_message)
@@ -102,143 +108,4 @@ class Blob:
     def send_ack(self, hash: str) -> None:
         pass
 
-    def ack_recieved(self, plaintext: str) -> None:
-        self.shuffle_blob(str(self.hash) + plaintext)
-        print("New blob hash: ", self.hash)
-def main(t_seed: str) -> None:
-    print("I am Nobody.")
-    current_blob: Blob = Blob()
-    current_blob.shuffle_blob(t_seed)
-    # print("Shuffled blob: ", current_blob.blob, " hash: ", current_blob.hash)
-    current_blob.generate_lookup_table()
-    t_message: str = input("Enter a message: ")
-    t_mappings: list = current_blob.encode(t_message)
-    print("Encoded mappings: ", t_mappings)
-    t_decode: bytearray = current_blob.decode(t_mappings)
-    print("Decoded bytes: ", t_decode, " decoded string: ", current_blob.decode_as_text(t_mappings))
-    # print("History: ", current_blob.blob_history)
-    current_blob.ack_recieved(t_message)
 
-def accept_incoming_connections():
-    """Sets up handling for incoming clients."""
-    while True:
-        client, client_address = SERVER.accept()
-        print("%s:%s has connected." % client_address)
-        client.send(bytes("CHAT OPENED", "utf8"))
-        addresses[client] = client_address
-        Thread(target=handle_client, args=(client,)).start()
-
-def handle_client(client):  # Takes client socket as argument.
-    """Handles a single client connection."""
-
-    name = client.recv(BUFSIZ).decode("utf8")
-    welcome = 'Welcome %s! If you ever want to quit, type {quit} to exit.' % name
-    client.send(bytes(welcome, "utf8"))
-    msg = "%s has joined the chat!" % name
-    broadcast(bytes(msg, "utf8"))
-    clients[client] = name
-
-    while True:
-        msg = client.recv(BUFSIZ)
-        if msg != bytes("{quit}", "utf8"):
-            broadcast(msg, name+": ")
-        else:
-            client.send(bytes("{quit}", "utf8"))
-            client.close()
-            del clients[client]
-            broadcast(bytes("%s has left the chat." % name, "utf8"))
-            break
-
-
-def broadcast(msg, prefix=""):  # prefix is for name identification.
-    """Broadcasts a message to all the clients."""
-
-    for sock in clients:
-        sock.send(bytes(prefix, "utf8")+msg)
-
-def receive():
-    """Handles receiving of messages."""
-    while True:
-        try:
-            msg = client_socket.recv(BUFSIZ).decode("utf8")
-            if not msg: continue
-            print(msg)
-        except OSError:  # Possibly client has left the chat.
-            break
-
-
-def send(packet: list):  # event is passed by binders.
-    """Handles sending of messages."""
-    msg = ''.join(packet)
-    client_socket.send(bytes(msg, "utf8"))
-    if msg == "{quit}":
-        client_socket.close()
-        top.quit()
-
-
-def on_closing(event=None):
-    """This function is to be called when the window is closed."""
-    my_msg.set("{quit}")
-    send()
-
-### EXECUTION STARTS HERE ###
-
-
-HOST = ""
-PORT = 33000
-BUFSIZ = 1024
-ADDR = ""
-SERVER = None
-addresses = {}
-clients = {}
-screen_name = ""
-STATE = Status.UNINITIALIZED
-CLIENT_ARG_LEN = 4 # 'CLIENT', SERVER_HOST, INIT_KEY, SCREEN_NAME
-SERVER_ARG_LEN = 3 # 'SERVER', INIT_KEY, SCREEN_NAME
-args = sys.argv[1:]
-is_host = False
-
-print("Fucking cunt sack of shit I fucking hate: ", is_host)
-
-if len(args) < min(CLIENT_ARG_LEN, SERVER_ARG_LEN): 
-    print("TO FEW ARGUMENTS PROVIDED!")
-    sys.exit()
-if not (args[0].lower() in ["client", "server"]): 
-    print("ARGUMENT 1 NEEDS TO BE 'CLIENT' OR 'SERVER'!")
-    sys.exit()
-print(is_host)
-is_host = (args[0].lower() == 'server')
-print("IS SERVER: ", is_host)
-if is_host and len(args) != SERVER_ARG_LEN:
-    print(f"SERVER REQUIRES {SERVER_ARG_LEN} ARGUMENTS!")
-    sys.exit()
-elif not is_host and len(args) != CLIENT_ARG_LEN:
-    print(f"CLIENT REQUIRES {CLIENT_ARG_LEN} ARGUMENTS!")
-    sys.exit()
-if is_host:
-    init_key = args[1]
-    screen_name = args[2]
-else:
-    HOST = args[1]
-    init_key = args[2]
-    screen_name = args[3]
-
-print("Cunt: ", is_host)
-if is_host: # Client set up
-    ADDR = (HOST, PORT)
-    SERVER = socket(AF_INET, SOCK_STREAM)
-    SERVER.bind(ADDR)
-    SERVER.listen(5)
-    print("Waiting for connection...")
-    ACCEPT_THREAD = Thread(target=accept_incoming_connections)
-    ACCEPT_THREAD.start()
-    ACCEPT_THREAD.join()
-    SERVER.close()
-else: # Server set up
-    ADDR = (HOST, PORT)
-    client_socket = socket(AF_INET, SOCK_STREAM)
-    client_socket.connect(ADDR)
-    receive_thread = Thread(target=receive)
-    receive_thread.start()
-
-main(init_key)

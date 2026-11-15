@@ -76,7 +76,6 @@ class Blob:
         return res
     
     def purge_bad_history(self, t_last_good: str) -> None:
-        return
         while(len(self.hash_history) > 0):
             if self.hash_history[0] != t_last_good:
                 self.blob_history.pop(self.hash_history.pop(0))
@@ -90,11 +89,13 @@ class Blob:
         return ''.join(res)
     
     def store_current_blob(self) -> None:
-        if len(self.hash_history) >= self.history_length: 
-            self.blob_history.pop(self.hash_history.pop(-1))
+        if len(self.hash_history) > self.history_length: 
+            t_popped = self.hash_history.pop(-1)
+            if t_popped in self.blob_history.keys():
+                self.blob_history.pop(self.hash_history.pop(-1))
             
         self.hash_history.insert(0, self.hash)
-        self.blob_history[self.hash] = self.blob
+        self.blob_history[self.hash] = self.blob.copy()
     
     def generate_sos(self) -> str:
         return random.choices(CHARS, self.sos_length)
@@ -120,10 +121,12 @@ class Blob:
         return res
 
     def restore_blob(self, indx: int) -> None:
-        if indx < 0 or indx > len(self.hash_history):
+        if indx <= 0 or indx > len(self.hash_history):
             print("OUT OF HISTORY BOUNDS, RETURN")
         self.hash = self.hash_history[indx]
         self.blob = self.blob_history[self.hash]
+
+        self.generate_lookup_table()
         
         print("indx: ", indx, " Reverted blob hash to: ", self.hash, " blob: ", str(self.blob)[:24])
     

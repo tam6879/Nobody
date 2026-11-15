@@ -73,6 +73,7 @@ def send_sos() -> None:
 
 def receive():
     """Handles receiving of messages."""
+    global failed_message
     while True:
         try:
             msg = client_socket.recv(BUFSIZ).decode("utf8")
@@ -110,9 +111,11 @@ def receive():
                             local_blob.purge_bad_history(t_hash)
                             print("REVERTED BLOB, TRYING WITH PREVIOUS")
                             send(Header.CLR, t_hash)
+                            found = True
                             break
                     if (not found):
                         print("CATASTROPHIC FAILURE HOW DID THIS EVEN HAPPEN?!")
+                        sys.exit()
                 case Header.CLR: # K:'blob_hash'abs
                     t_hash = t_split[1]
                     if not t_hash in local_blob.hash_history:
@@ -137,6 +140,7 @@ def receive():
 def get_time() -> str: return str(datetime.now())
 
 def send_message() -> None: # plaintext format for sending: 'message|date_and_time'
+    global prev_message
     t_plaintext = screen_name + ": " + new_message.get() + " @ " + get_time()
     t_hash = hashlib.sha256(t_plaintext.encode("utf-8")).hexdigest()
     t_packet = local_blob.encode(t_plaintext)
@@ -176,17 +180,21 @@ label_size_small: int = 15
 label_size_smaller: int = 10
 
 root.title(name)
-root.geometry("800x600")
+root.geometry("1200x600")
 root.configure(bg = canvas_bg)
+
+bg_image = tk.PhotoImage(file="assets/bg.png")
+bg_label = tk.Label(root, image=bg_image)
+bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
 top_lbl = tk.Label(root, text = name, font = (label_font, label_size), bg = canvas_bg, fg = label_fg)
 bottom_lbl = tk.Label(root, text = tagline, font = (label_font, label_size), bg = canvas_bg, fg = label_fg)
 
 past_m_frame = tk.Frame(root, bg = canvas_bg)
 
-past_messages = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
+past_messages = st.ScrolledText(past_m_frame, width = 40, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
 
-current_blob = tk.Label(past_m_frame, justify = "left", wraplength = 400, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
+current_blob = tk.Label(past_m_frame, justify = "left", wraplength = 400, width = 40, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
 
 def message_submit() -> ():
     if new_message.get() != "":
@@ -199,7 +207,7 @@ def update_past_messages(new_message: str) -> ():
     past_messages.configure(state = "disabled")
 
 def update_blob_text() -> ():
-    res = f"Inside look:\nBlob State: {str(local_blob.blob)[10:48]}...\nBlob Hash: {str(local_blob.hash)}\nLast Sent Packet:{local_stats.last_sent[:64]}...\nLast Recieved Packet{local_stats.last_recieved[:64]}..."
+    res = f"Blob State: {str(local_blob.blob)[10:74]}...\nBlob Hash: {str(local_blob.hash)}\nLast Sent Packet: {local_stats.last_sent[:64]}...\nLast Recieved Packet: {local_stats.last_recieved[:64]}..."
     current_blob.config(text = res)
     root.after(256, update_blob_text)
 
@@ -231,6 +239,8 @@ breaking_butt.pack()
 bottom_lbl.pack()
 
 
+
+
 HOST = ""
 PORT = 33000
 BUFSIZ = 1024
@@ -240,9 +250,11 @@ addresses = {}
 screen_name = ""
 STATE = Status.UNINITIALIZED
 CLIENT_ARG_LEN = 4 # 'CLIENT', SERVER_HOST, INIT_KEY, SCREEN_NAME
-SERVER_ARG_LEN = 3 # 'SERVER', INIT_KEY, SCREEN_NAME
+SERVER_ARG_LEN = 1 # 'SERVER'
 args = sys.argv[1:]
 is_host = False
+
+
 
 if len(args) < min(CLIENT_ARG_LEN, SERVER_ARG_LEN): 
     print("TO FEW ARGUMENTS PROVIDED! ONLY SAW: ", len(args))
@@ -260,12 +272,20 @@ elif not is_host and len(args) != CLIENT_ARG_LEN:
     print(f"CLIENT REQUIRES {CLIENT_ARG_LEN} ARGUMENTS!")
     sys.exit()
 if is_host:
-    init_key = args[1]
-    screen_name = args[2]
+    init_key = "NONE"
 else:
     HOST = args[1]
     init_key = args[2]
     screen_name = args[3]
+
+local_blob = Blob()
+local_stats = ChatStats()
+local_blob.shuffle_blob(init_key)
+update_blob_text()
+
+root.title("Client: " + screen_name)
+
+
 if is_host: # Server set up
     ADDR = (HOST, PORT)
     SERVER = socket(AF_INET, SOCK_STREAM)
@@ -283,10 +303,6 @@ else: # Client set up
     receive_thread = Thread(target=receive)
     receive_thread.start()
 
-local_blob = Blob()
-local_stats = ChatStats()
-local_blob.shuffle_blob(init_key)
-update_blob_text()
 # print("Blob: ", str(local_blob.blob))
 # print("Blob hash: ", local_blob.hash)
 root.mainloop()

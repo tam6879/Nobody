@@ -1,6 +1,8 @@
 import tkinter as tk
 import tkinter.scrolledtext as st
 import sys
+import random
+import string
 import hashlib
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
@@ -200,11 +202,17 @@ def update_blob_text() -> ():
     current_blob.config(text = res)
     root.after(256, update_blob_text)
 
+def breaking_shuffle() -> ():
+    random_string: str = "".join(random.choices(string.ascii_letters + string.digits, k = 10))
+    local_blob.shuffle_blob(random_string)
+
 new_m_frame = tk.Frame(root, bg = canvas_bg)
 
 message_lbl = tk.Label(new_m_frame, text = "New message", font = (label_font, label_size_small), bg = canvas_bg, fg = label_fg)
 message_entry = tk.Entry(new_m_frame, textvariable = new_message, bg = textbox_bg, fg = "white", width = 70, font = (label_font, label_size_smaller))
 message_btn = tk.Button(new_m_frame, text = "Send", command = send_message, font = (label_font, label_size_smaller))
+
+breaking_butt = tk.Button(root, text = "Breaking shuffle!", command = breaking_shuffle, font = (label_font, label_size_smaller))
 
 top_lbl.pack()
 past_m_frame.pack()
@@ -214,6 +222,7 @@ new_m_frame.pack()
 message_lbl.pack(side="left")
 message_entry.pack(side="left")
 message_btn.pack(side="left")
+breaking_butt.pack()
 bottom_lbl.pack()
 
 

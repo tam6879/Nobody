@@ -67,10 +67,9 @@ sos_depth: int = 0
 
 def send_sos() -> None:
     t_hashs = ""
-    for t_blob in local_blob.blob_history:
-        t_hashs = t_hashs + "|" + t_blob[1]
+    for h_hash in local_blob.hash_history:
+        t_hashs = t_hashs + ":" + h_hash
     send(Header.SOS, t_hashs)
-    pending_acks[t_sos_hash] = t_sos_plaintext
 
 def receive():
     """Handles receiving of messages."""
@@ -109,17 +108,19 @@ def receive():
                         if t_hash in local_blob.hash_history:
                             local_blob.restore_blob(local_blob.hash_history.index(t_hash))
                             local_blob.purge_bad_history(t_hash)
-                            found = True
+                            print("REVERTED BLOB, TRYING WITH PREVIOUS")
+                            send(Header.CLR, t_hash)
                             break
-                    if (found):
-                        print("REVERTED BLOB, TRYING WITH PREVIOUS")
-                        send(Header.CLR, t_hash)
-                    else:
+                    if (not found):
                         print("CATASTROPHIC FAILURE HOW DID THIS EVEN HAPPEN?!")
                 case Header.CLR: # K:'blob_hash'abs
                     t_hash = t_split[1]
+                    if not t_hash in local_blob.hash_history:
+                        print("Dude, I literally don't know")
+                        continue
                     local_blob.restore_blob(local_blob.hash_history.index(t_hash))
                     local_blob.purge_bad_history(t_hash)
+                    print("CLR set hash to: ", t_hash)
                     new_message.set(failed_message)
                     send_message()
                 case Header.EXIT:

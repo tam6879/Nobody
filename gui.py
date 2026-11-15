@@ -215,6 +215,10 @@ message_btn = tk.Button(new_m_frame, text = "Send", command = send_message, font
 
 breaking_butt = tk.Button(root, text = "Breaking shuffle!", command = breaking_shuffle, font = (label_font, label_size_smaller))
 
+def func(event):
+    send_message()
+root.bind("<Return>", func)
+
 top_lbl.pack()
 past_m_frame.pack()
 past_messages.pack(side="left")

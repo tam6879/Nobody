@@ -86,13 +86,18 @@ def receive():
                     if not local_hash in pending_acks.keys(): 
                         send(Header.ACK, local_hash)
                         local_blob.shuffle_blob(t_plaintext)
+                        update_blob_text(str(local_blob.blob))
                     else:
                         print("This is my own packet, ignoring")
                 case Header.ACK: # A:'acknowledged_hash'
                     t_hash = t_split[1]
                     if t_hash in pending_acks.keys():
                         local_blob.shuffle_blob(pending_acks[t_hash])
+<<<<<<< Updated upstream
                         
+=======
+                        update_blob_text(str(local_blob.blob))
+>>>>>>> Stashed changes
                         pending_acks.pop(t_hash)
                     else:
                         send_sos()
@@ -168,16 +173,24 @@ root.configure(bg = canvas_bg)
 top_lbl = tk.Label(root, text = name, font = (label_font, label_size), bg = canvas_bg, fg = label_fg)
 bottom_lbl = tk.Label(root, text = tagline, font = (label_font, label_size), bg = canvas_bg, fg = label_fg)
 
+past_m_frame = tk.Frame(root, bg = canvas_bg)
 
-past_messages = st.ScrolledText(root, width = 100, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
+past_messages = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
+current_blob = st.ScrolledText(past_m_frame, width = 50, height = 15, font = (label_font, label_size_small), bg = textbox_bg)
 
-def message_submit():
+def message_submit() -> ():
     if new_message.get() != "":
         update_past_messages(new_message.get())
     new_message.set("")
+
 def update_past_messages(new_message: str) -> ():
     past_messages.configure(state = "normal")
     past_messages.insert(tk.END, new_message + '\n')
+    past_messages.configure(state = "disabled")
+
+def update_blob_text(new_blob: str) -> ():
+    current_blob.configure(state = "normal")
+    current_blob.insert(tk.INSERT, new_blob)
     past_messages.configure(state = "disabled")
 
 new_m_frame = tk.Frame(root, bg = canvas_bg)
@@ -187,7 +200,9 @@ message_entry = tk.Entry(new_m_frame, textvariable = new_message, bg = textbox_b
 message_btn = tk.Button(new_m_frame, text = "Send", command = send_message, font = (label_font, label_size_smaller))
 
 top_lbl.pack()
-past_messages.pack()
+past_m_frame.pack()
+past_messages.pack(side="left")
+current_blob.pack(side="left")
 new_m_frame.pack()
 message_lbl.pack(side="left")
 message_entry.pack(side="left")
@@ -249,5 +264,7 @@ else: # Client set up
 
 local_blob = Blob()
 local_blob.shuffle_blob(init_key)
+update_blob_text(str(local_blob.blob))
+print("Blob: ", str(local_blob.blob))
 print("Blob hash: ", local_blob.hash)
 root.mainloop()
